@@ -36,10 +36,22 @@ jobs:
           java-version: '17'
       - name: Preparar Gradle
         uses: gradle/actions/setup-gradle@v4
+      - name: Aumentar tempo de download
+        run: |
+          if [ -f gradle/wrapper/gradle-wrapper.properties ]; then
+            sed -i '/^networkTimeout=/d' gradle/wrapper/gradle-wrapper.properties
+            echo 'networkTimeout=60000' >> gradle/wrapper/gradle-wrapper.properties
+          fi
       - name: Compilar APK release
+        env:
+          GRADLE_OPTS: -Dorg.gradle.wrapper.networkTimeout=60000
         run: |
           chmod +x gradlew
-          ./gradlew :${{ inputs.module }}:assembleRelease --no-daemon
+          for tentativa in 1 2 3; do
+            ./gradlew :${{ inputs.module }}:assembleRelease --no-daemon && exit 0
+            [ $tentativa -eq 3 ] && exit 1
+            sleep 15
+          done
       - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:
